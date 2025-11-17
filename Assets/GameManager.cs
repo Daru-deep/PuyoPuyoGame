@@ -27,7 +27,7 @@ public class GameManager : MonoBehaviour
 
     int currentCol = 12;
     int currentRow = 4;
-    public bool fallloop = true;//実行スイッチ
+    public bool fallloop = false;//実行スイッチ
     
     public GameObject[,] borld;
     private Vector2Int coordinates;
@@ -76,11 +76,26 @@ public class GameManager : MonoBehaviour
     }
 
     TextMeshProUGUI tmp;
-    void controlFall(bool enter)
+    //<summary>
+    //ゲームスタートオーヴァー
+    //</summary>
+    public void ControlFall(bool enter)//ボタンで操作
     {
+        GameObject btn = GameObject.Find("Start");
         fallloop = enter; 
-        
+        if(btn !=null)
+        {
+           if(enter)btn.SetActive(false);
+           if(!enter)btn.SetActive(true);
+        }
+        else
+        {
+            Debug.LogError("StartButtonがNULL");
+            return;
+        }
+   
     }
+
 
     void Start()
     {
@@ -96,7 +111,6 @@ public class GameManager : MonoBehaviour
         currentCol = boardHeight - 1;
         currentRow = (boardWidth - 1) / 2;
         playingBall.transform.position = IndexToWorldPos(currentCol, currentRow);
-        controlFall(true);
         Debug.Log("columnHeights="+columnHeights[0]);
         StartCoroutine(FallLoop());
     }
