@@ -36,6 +36,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private Transform zero;
     [SerializeField] private int endPoint;
 
+    [SerializeField] private GameObject start;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
 
@@ -79,10 +80,13 @@ public class GameManager : MonoBehaviour
     //<summary>
     //ゲームスタートオーヴァー
     //</summary>
-    public void ControlFall(bool enter)//ボタンで操作
+    public void StartControl(bool enter)//ボタンで操作
     {
-        GameObject btn = GameObject.Find("Start");
+        GameObject btn = start;
+        if(enter)StartGame();
         fallloop = enter; 
+        
+        
         if(btn !=null)
         {
            if(enter)btn.SetActive(false);
@@ -97,8 +101,17 @@ public class GameManager : MonoBehaviour
     }
 
 
-    void Start()
+    void StartGame()
     {
+        # region ("今あるBallを削除")
+        GameObject[] RestBalls = GameObject.FindGameObjectsWithTag("Ball");
+        foreach(GameObject b in RestBalls)
+        {
+        Destroy(b);    
+        }
+        # endregion
+        
+        Debug.Log($"InStertIsEnter{fallloop}");
        tmp  = textOb.GetComponent<TextMeshProUGUI>();
        
         //DestroyBall();
@@ -120,7 +133,9 @@ public class GameManager : MonoBehaviour
     void Update()
     {
 
-   
+        if(fallloop)
+        {
+
 
         if (Input.GetKeyDown(KeyCode.A))
         {
@@ -139,6 +154,8 @@ public class GameManager : MonoBehaviour
         }
         playingBall.transform.position = IndexToWorldPos(currentCol,currentRow);
 
+        }
+        
         
         
     }
@@ -169,8 +186,6 @@ public class GameManager : MonoBehaviour
     
     IEnumerator FallLoop()
     {
-        
-
         while (true)
         {
             
@@ -178,20 +193,17 @@ public class GameManager : MonoBehaviour
             
             if (currentCol <= columnHeights[currentRow])//横列の立てのストック
             {
-                
                 int hitRow = currentRow;
                 int hitCol = currentCol;
                 ChengeBorld(hitCol, hitRow, playingBall);
                 OnBallLanded(hitCol, hitRow, playingBall);
+                yield break;
             }
             else if (fallloop) 
             { 
                 currentCol--;
             }
-            else
-            {
-                continue;
-            }
+
         }
     }
     
@@ -200,15 +212,12 @@ public class GameManager : MonoBehaviour
     void OnBallLanded(int hitCol,int hitRow,GameObject landedBall)
     {
         columnHeights[hitRow] = Mathf.Max(columnHeights[hitRow], hitCol + 1);
-
-        DestroyBall();
-        ApplyGravity();
-        SpawnNewBall();
-
+        StartCoroutine(ResolveChains());
     }
 
     void SpawnNewBall()
     {
+
         currentCol = boardHeight-1;
         currentRow = (boardWidth-1)/2;
 
@@ -221,7 +230,7 @@ public class GameManager : MonoBehaviour
 
         playingBall = InstanceBall();
         playingBall.transform.position = IndexToWorldPos(currentCol, currentRow);
-
+        
 
     }
 
@@ -262,18 +271,19 @@ public class GameManager : MonoBehaviour
         operand = 0;
         multiple = 0;
         tmp.text = ($"ポイント追加！\n：現在{point}点！！");
-        fallloop = true;
-        if(point > 100)
+        
+        if(point >= 50)
         {
             tmp.text = ("GAME_CLEAR");
-            fallloop= false;
+            StartControl(false);
+            
         }
     }
 
-    void DestroyBall()
+    bool DestroyBall()
     {
         bool[,] visited = new bool[boardHeight, boardWidth];
-        bool foundMatch = false;
+        bool destroyedBall = false;
 
         for (int col = 0; col < boardHeight; col++)
         {
@@ -297,17 +307,17 @@ public class GameManager : MonoBehaviour
                             Destroy(borld[pos.x, pos.y]);
                             borld[pos.x, pos.y] = null;
                         }
-                        foundMatch = true;
+                        destroyedBall = true;
                     }
                 }
             }
         }
-        if(foundMatch)
+        if(destroyedBall)
         {
             RecalcNextPos();
-            StartCoroutine(CheckChainReaction());
-        }
 
+        }
+        return destroyedBall;
     }
 
 
@@ -366,48 +376,42 @@ public class GameManager : MonoBehaviour
     }
 
 
-    IEnumerator CheckChainReaction()
+    IEnumerator ResolveChains()
+{
+    fallloop = false;
+
+    while (true)
     {
-        fallloop = false;
-        yield return new WaitForSeconds(fallSpeed * (1f*0.7f));
+        bool destroyed = DestroyBall();
+
+        if (!destroyed)
+        {
+            break;
+        }
+
+        // 連鎖数を増やす
+        multiple++;
+
+        // 消えたのを見せる待ち時間
+        yield return new WaitForSeconds(fallSpeed);
+
+        // 重力で落とす
         ApplyGravity();
-        yield return new WaitForSeconds(fallSpeed * (1f * 0.3f));
 
-        bool[,] visited = new bool[boardHeight, boardWidth];
-        bool hasMatch = false;
-
-        for (int col = 0; col < boardHeight; col++)
-        {
-            for (int row = 0; row < boardWidth; row++)
-            {
-                
-                    if (borld[col, row] != null && !visited[col, row])
-                    {
-                        List<Vector2Int> connectedBalls =FindConnectedBalls(col, row , visited);
-                       
-
-
-                        if (connectedBalls.Count >= minMatchCount)
-                        {
-                            hasMatch = true;
-                            break;
-                        }
-                    }
-                
-            }
-            if (hasMatch) break;
-        }
-        if (hasMatch)
-        {
-            Debug.Log("連鎖発生！");
-            multiple++;
-            DestroyBall();
-        }
-
-        if (!hasMatch) PointCounter();
-        fallloop = true;
-     
+        // 落ちるのを待つ
+        yield return new WaitForSeconds(fallSpeed);
+        
     }
+
+    
+     if (multiple > 0) { PointCounter(); }
+
+        //次のボールを出す
+        SpawnNewBall();
+        fallloop = true;
+        StartCoroutine(FallLoop());
+}
+
     void ApplyGravity()
     {
         for (int row = 0; row < boardWidth; row++) // 各横位置で
