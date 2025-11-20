@@ -1,11 +1,21 @@
+# Unity 標準
 [Ll]ibrary/
 [Tt]emp/
-[Oo]bj/
 [Bb]uild/
 [Bb]uilds/
 [Ll]ogs/
-Assets/*SDF.asset
+[Oo]bj/
+[Mm]emoryCaptures/
 *.csproj
-*.unityproj
 *.sln
 *.user
+*.pidb
+
+# 作ったビルドは絶対に追跡しない
+Build/
+Builds/
+Dist/
+*.exe
+*.apk
+*.aab
+*.zipAssets/DotGothic16-Regular SDF.asset

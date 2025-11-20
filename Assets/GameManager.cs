@@ -1,4 +1,4 @@
-﻿using Mono.Cecil;
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -13,7 +13,7 @@ using static UnityEngine.Rendering.DebugUI.Table;
 public class GameManager : MonoBehaviour
 {
     [Header("ゲーム設定")]
-    [SerializeField] private int boardHeight = 13;
+    [SerializeField] private int boardHeight = 12;
     [SerializeField] private int boardWidth = 9;
     [SerializeField] private float cellSize = 1f;
     [SerializeField] private float fallSpeed = 1f;
@@ -77,20 +77,32 @@ public class GameManager : MonoBehaviour
     }
 
     TextMeshProUGUI tmp;
-    //<summary>
-    //ゲームスタートオーヴァー
-    //</summary>
+    void Start()
+    {
+        tmp  = textOb.GetComponent<TextMeshProUGUI>();
+    }
+    ///<summary>
+    ///ゲームスタートオーヴァー
+    ///</summary>
     public void StartControl(bool enter)//ボタンで操作
     {
         GameObject btn = start;
-        if(enter)StartGame();
+        
         fallloop = enter; 
         
         
         if(btn !=null)
         {
-           if(enter)btn.SetActive(false);
-           if(!enter)btn.SetActive(true);
+           if(enter)
+           {
+            btn.SetActive(false);
+            StartGame();
+           }
+           if(!enter)
+           {
+            StopAllCoroutines();
+            btn.SetActive(true);
+           }
         }
         else
         {
@@ -100,10 +112,23 @@ public class GameManager : MonoBehaviour
    
     }
 
+    /// <summary>
+    /// テスト用にポイントを追加する関数
+    /// </summary>
+    void ForTest()
+    {
+        point += 100;
+        tmp.text = "testMode";
+    }
 
     void StartGame()
     {
-        # region ("今あるBallを削除")
+        
+        # region ("リスタート処理)
+        //ポイントをリセット
+        point = 0;
+        tmp.text = $"GameStart\n：現在{point}点！！";
+        //今あるボールを削除
         GameObject[] RestBalls = GameObject.FindGameObjectsWithTag("Ball");
         foreach(GameObject b in RestBalls)
         {
@@ -112,9 +137,6 @@ public class GameManager : MonoBehaviour
         # endregion
         
         Debug.Log($"InStertIsEnter{fallloop}");
-       tmp  = textOb.GetComponent<TextMeshProUGUI>();
-       
-        //DestroyBall();
         borld = new GameObject[boardHeight, boardWidth];
         columnHeights = new int[boardWidth] ;
 
@@ -132,11 +154,10 @@ public class GameManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if(Input.GetKeyDown(KeyCode.T))ForTest();//Tを押したときにテストメソッドを起動
 
         if(fallloop)
         {
-
-
         if (Input.GetKeyDown(KeyCode.A))
         {
             ControllObject(false);
@@ -152,8 +173,10 @@ public class GameManager : MonoBehaviour
                 currentCol--;
             }
         }
-        playingBall.transform.position = IndexToWorldPos(currentCol,currentRow);
-
+        if(playingBall != null)
+        {
+            playingBall.transform.position = IndexToWorldPos(currentCol,currentRow);
+        }
         }
         
         
@@ -215,7 +238,7 @@ public class GameManager : MonoBehaviour
         StartCoroutine(ResolveChains());
     }
 
-    void SpawnNewBall()
+    bool SpawnNewBall()
     {
 
         currentCol = boardHeight-1;
@@ -223,14 +246,14 @@ public class GameManager : MonoBehaviour
 
         if (columnHeights[currentRow] >= boardHeight)
         {
-            Debug.Log("Game Over!");
-            fallloop = false;
-            return;
+            tmp.text = "GameOver";
+            StartControl(false);
+            return false;
         }
 
         playingBall = InstanceBall();
         playingBall.transform.position = IndexToWorldPos(currentCol, currentRow);
-        
+        return true;
 
     }
 
@@ -261,23 +284,28 @@ public class GameManager : MonoBehaviour
     }
 
     float point = 0;
-    float operand = 0;  //被乗数
-    float multiple = 0; //乗数
+    float operand = 0;  //被乗数_ボール数
+    float multiple = 0; //乗数_連鎖数
 
-    void PointCounter()
+    bool PointCounter()
     {
+        if(multiple > 0)
+        {
         float sum = operand * multiple;
         point += sum;
+        tmp.text = ($"{multiple}連鎖！！\n：現在{point}点！！");
         operand = 0;
         multiple = 0;
-        tmp.text = ($"ポイント追加！\n：現在{point}点！！");
-        
+        }
         if(point >= 50)
         {
-            tmp.text = ("GAME_CLEAR");
+            tmp.text += ("\nGAME_CLEAR");
             StartControl(false);
+            return false;
             
         }
+        return true;
+        
     }
 
     bool DestroyBall()
@@ -404,12 +432,16 @@ public class GameManager : MonoBehaviour
     }
 
     
-     if (multiple > 0) { PointCounter(); }
+        if(PointCounter())
+        {
 
         //次のボールを出す
-        SpawnNewBall();
+        if(SpawnNewBall())
+        {
         fallloop = true;
         StartCoroutine(FallLoop());
+        }
+        }
 }
 
     void ApplyGravity()
